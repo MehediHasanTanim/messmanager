@@ -6,6 +6,7 @@ import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/app_states.dart';
 import '../../features/accounting/presentation/accounting_month_pages.dart';
 import '../../features/foundation/presentation/foundation_page.dart';
+import '../../features/meals/presentation/meal_pages.dart';
 import '../../features/members/presentation/member_pages.dart';
 import '../../features/onboarding/presentation/onboarding_pages.dart';
 import '../providers/app_providers.dart';
@@ -27,6 +28,10 @@ abstract final class AppRoutes {
   static const recovery = '/lock/recovery';
   static const home = '/home';
   static const meals = '/meals';
+  static const mealEntry = '/meals/entry';
+  static const mealCalendar = '/meals/calendar';
+  static const mealDayDetails = '/meals/day';
+  static const memberMealDetails = '/meals/member';
   static const expenses = '/expenses';
   static const members = '/members';
   static const addMember = '/members/add';
@@ -142,11 +147,35 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.meals,
             name: 'meals',
-            builder: (context, state) => const FoundationPage(
-              title: 'খাবার',
-              icon: Icons.restaurant_outlined,
-              description: 'Daily meal entry is planned for Phase 5.',
-            ),
+            builder: (context, state) => const MealsHomePage(),
+            routes: [
+              GoRoute(
+                path: 'entry',
+                name: 'meal-entry',
+                builder: (context, state) => DailyMealEntryPage(
+                  date: _routeDate(state.uri.queryParameters['date']),
+                ),
+              ),
+              GoRoute(
+                path: 'calendar',
+                name: 'meal-calendar',
+                builder: (context, state) => const MealCalendarPage(),
+              ),
+              GoRoute(
+                path: 'day/:date',
+                name: 'meal-day-details',
+                builder: (context, state) => MealDayDetailsPage(
+                  date: _routeDate(state.pathParameters['date']),
+                ),
+              ),
+              GoRoute(
+                path: 'member/:memberId',
+                name: 'member-meal-details',
+                builder: (context, state) => MemberMealDetailsPage(
+                  memberId: state.pathParameters['memberId']!,
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.expenses,
@@ -297,3 +326,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(router.dispose);
   return router;
 });
+
+DateTime _routeDate(String? value) =>
+    DateTime.tryParse(value ?? '') ?? DateTime.now();

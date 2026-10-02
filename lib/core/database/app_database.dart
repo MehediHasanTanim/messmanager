@@ -784,7 +784,14 @@ class AccountingMonthDao extends DatabaseAccessor<AppDatabase>
 }
 
 @DriftAccessor(
-  tables: [MealEntries, GuestMeals, SpecialMeals, SpecialMealMembers],
+  tables: [
+    MealEntries,
+    GuestMeals,
+    SpecialMeals,
+    SpecialMealMembers,
+    Members,
+    AccountingMonths,
+  ],
 )
 class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   MealDao(super.db);
@@ -795,6 +802,27 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
 
   Future<void> saveDailyEntries(List<MealEntriesCompanion> entries) {
     return transaction(() async {
+      for (final entry in entries) {
+        await into(mealEntries).insertOnConflictUpdate(entry);
+      }
+    });
+  }
+
+  /// Writes a complete daily sheet in one transaction. The open-month check is
+  /// intentionally in the same transaction as the writes.
+  Future<void> saveDailyEntriesForOpenMonth(
+    String accountingMonthId,
+    List<MealEntriesCompanion> entries,
+  ) {
+    return transaction(() async {
+      final month =
+          await (select(accountingMonths)
+                ..where((table) => table.id.equals(accountingMonthId)))
+              .getSingleOrNull();
+      if (month == null) throw StateError('Accounting month not found.');
+      if (month.status == 'closed') {
+        throw StateError('Closed accounting months cannot be edited.');
+      }
       for (final entry in entries) {
         await into(mealEntries).insertOnConflictUpdate(entry);
       }
@@ -815,6 +843,37 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
         (table) => table.messId.equals(messId) & table.mealDate.equals(date),
       );
     return query.watch();
+  }
+
+  Future<List<MealEntry>> forDate(String messId, DateTime date) {
+    final query = select(mealEntries)
+      ..where(
+        (table) => table.messId.equals(messId) & table.mealDate.equals(date),
+      )
+      ..orderBy([(table) => OrderingTerm.asc(table.memberId)]);
+    return query.get();
+  }
+
+  Future<List<Member>> eligibleMembersForDate(String messId, DateTime date) {
+    final day = DateTime(date.year, date.month, date.day);
+    final query = select(members)
+      ..where(
+        (table) =>
+            table.messId.equals(messId) &
+            table.status.equals('active') &
+            table.joinDate.isSmallerOrEqualValue(day) &
+            (table.leaveDate.isNull() |
+                table.leaveDate.isBiggerOrEqualValue(day)),
+      )
+      ..orderBy([(table) => OrderingTerm.asc(table.name)]);
+    return query.get();
+  }
+
+  Future<List<MealEntry>> forMonth(String accountingMonthId) {
+    final query = select(mealEntries)
+      ..where((table) => table.accountingMonthId.equals(accountingMonthId))
+      ..orderBy([(table) => OrderingTerm.asc(table.mealDate)]);
+    return query.get();
   }
 
   Future<void> createGuestMeal(GuestMealsCompanion guestMeal) {
