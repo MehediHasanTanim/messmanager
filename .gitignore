@@ -58,4 +58,6 @@ ios/ExportOptions.plist
 
 # Tool output
 reports/
+!lib/features/reports/
+!lib/features/reports/**
 test-results/

@@ -161,7 +161,7 @@ class MoreFoundationPage extends StatelessWidget {
         _MoreRouteTile(
           label: 'রিপোর্ট',
           icon: Icons.bar_chart_outlined,
-          onTap: () => context.go('${AppRoutes.reports}/monthly-summary'),
+          onTap: () => context.go(AppRoutes.reports),
         ),
       ],
     );

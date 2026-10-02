@@ -5,6 +5,7 @@ import '../../../core/database/database_provider.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/app_content.dart';
 import '../../accounting/presentation/accounting_providers.dart';
+import '../domain/closing_use_cases.dart';
 import '../domain/settlement_use_cases.dart';
 import '../domain/settlement_validator.dart';
 
@@ -50,6 +51,80 @@ class SettlementHomePage extends ConsumerWidget {
                   Tab(text: 'সদস্য'),
                   Tab(text: 'ইস্যু'),
                 ],
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md),
+                child: month.value!.status == 'closed'
+                    ? OutlinedButton.icon(
+                        icon: const Icon(Icons.lock_open_outlined),
+                        label: const Text('মাস পুনরায় খুলুন'),
+                        onPressed: () async {
+                          final approved = await showDialog<bool>(
+                            context: context,
+                            builder: (dialogContext) => AlertDialog(
+                              title: const Text('মাস পুনরায় খুলবেন?'),
+                              content: const Text(
+                                'পূর্বের ড্রাফট অকার্যকর হবে এবং পুনরায় হিসাব করতে হবে।',
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () =>
+                                      Navigator.pop(dialogContext, false),
+                                  child: const Text('বাতিল'),
+                                ),
+                                FilledButton(
+                                  onPressed: () =>
+                                      Navigator.pop(dialogContext, true),
+                                  child: const Text('পুনরায় খুলুন'),
+                                ),
+                              ],
+                            ),
+                          );
+                          if (approved != true) return;
+                          await ReopenAccountingMonth(
+                            ref.read(appDatabaseProvider),
+                          )(
+                            messId: mess.value!.id,
+                            monthId: resolved,
+                            authenticated: true,
+                          );
+                          ref.invalidate(currentAccountingMonthProvider);
+                        },
+                      )
+                    : FilledButton.icon(
+                        icon: const Icon(Icons.lock_outline),
+                        label: const Text('মাস বন্ধ করুন'),
+                        onPressed: draft.canGenerate
+                            ? () async {
+                                final approved = await showDialog<bool>(
+                                  context: context,
+                                  builder: (dialogContext) => AlertDialog(
+                                    title: const Text('মাস বন্ধ করবেন?'),
+                                    content: const Text(
+                                      'সেটেলমেন্ট স্ন্যাপশট সংরক্ষিত হবে এবং মাসটি ফ্রিজ হবে।',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dialogContext, false),
+                                        child: const Text('বাতিল'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(dialogContext, true),
+                                        child: const Text('বন্ধ করুন'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (approved != true) return;
+                                await CloseAccountingMonth(
+                                  ref.read(appDatabaseProvider),
+                                )(messId: mess.value!.id, monthId: resolved);
+                                ref.invalidate(currentAccountingMonthProvider);
+                              }
+                            : null,
+                      ),
               ),
               Expanded(
                 child: TabBarView(

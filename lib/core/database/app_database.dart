@@ -1321,7 +1321,9 @@ class AdjustmentDao extends DatabaseAccessor<AppDatabase>
   }
 }
 
-@DriftAccessor(tables: [Settlements, MemberSettlements])
+@DriftAccessor(
+  tables: [Settlements, MemberSettlements, AccountingMonths, AuditEntries],
+)
 class SettlementDao extends DatabaseAccessor<AppDatabase>
     with _$SettlementDaoMixin {
   SettlementDao(super.db);
@@ -1343,6 +1345,103 @@ class SettlementDao extends DatabaseAccessor<AppDatabase>
           ..where((table) => table.accountingMonthId.equals(accountingMonthId)))
         .getSingleOrNull();
   }
+
+  /// The snapshot insert and period freeze are deliberately one transaction.
+  /// A failed member row, audit write, or month update rolls back everything.
+  Future<void> closeMonthAtomically({
+    required SettlementsCompanion settlement,
+    required List<MemberSettlementsCompanion> memberSnapshots,
+    required int finalMealRateScaled,
+    required AuditEntriesCompanion audit,
+  }) => transaction(() async {
+    final monthId = settlement.accountingMonthId.value;
+    final month = await (select(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).getSingleOrNull();
+    if (month == null) throw StateError('Accounting month not found.');
+    if (month.status == 'closed')
+      throw StateError('Accounting month is already closed.');
+    final prior = await forMonth(monthId);
+    if (prior != null) {
+      await (delete(
+        memberSettlements,
+      )..where((table) => table.settlementId.equals(prior.id))).go();
+      await (delete(
+        settlements,
+      )..where((table) => table.id.equals(prior.id))).go();
+    }
+    await into(settlements).insert(settlement);
+    await batch((batch) => batch.insertAll(memberSettlements, memberSnapshots));
+    final now = DateTime.now();
+    await (update(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).write(
+      AccountingMonthsCompanion(
+        status: const Value('closed'),
+        endDate: Value(now),
+        closedAt: Value(now),
+        finalMealRateScaled: Value(finalMealRateScaled),
+        updatedAt: Value(now),
+      ),
+    );
+    await into(auditEntries).insert(audit);
+  });
+
+  /// The prior snapshot is retained until the next close attempt. The audit
+  /// trail records that it is no longer the current calculation.
+  Future<void> reopenMonth({
+    required String messId,
+    required String monthId,
+    required String auditId,
+  }) => transaction(() async {
+    final month = await (select(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).getSingleOrNull();
+    if (month == null || month.status != 'closed')
+      throw StateError('Only a closed month can be reopened.');
+    final now = DateTime.now();
+    await (update(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).write(
+      AccountingMonthsCompanion(
+        status: const Value('active'),
+        closedAt: const Value(null),
+        finalMealRateScaled: const Value(null),
+        updatedAt: Value(now),
+      ),
+    );
+    await into(auditEntries).insert(
+      AuditEntriesCompanion.insert(
+        id: auditId,
+        messId: messId,
+        entityType: 'settlement',
+        entityId: monthId,
+        action: 'reopened',
+        oldValueJson: const Value('{"status":"closed"}'),
+        newValueJson: const Value(
+          '{"status":"active","requiresRecalculation":true}',
+        ),
+      ),
+    );
+  });
+
+  Future<void> replaceSnapshotForReclose({
+    required String monthId,
+    required SettlementsCompanion settlement,
+    required List<MemberSettlementsCompanion> memberSnapshots,
+  }) => transaction(() async {
+    final existing = await forMonth(monthId);
+    if (existing != null) {
+      await (delete(
+        memberSettlements,
+      )..where((table) => table.settlementId.equals(existing.id))).go();
+      await (delete(
+        settlements,
+      )..where((table) => table.id.equals(existing.id))).go();
+    }
+    await into(settlements).insert(settlement);
+    await batch((batch) => batch.insertAll(memberSettlements, memberSnapshots));
+  });
 }
 
 @DriftAccessor(

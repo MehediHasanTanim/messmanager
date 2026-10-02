@@ -26480,6 +26480,7 @@ mixin _$SettlementDaoMixin on DatabaseAccessor<AppDatabase> {
   $MembersTable get members => attachedDatabase.members;
   $MemberSettlementsTable get memberSettlements =>
       attachedDatabase.memberSettlements;
+  $AuditEntriesTable get auditEntries => attachedDatabase.auditEntries;
   SettlementDaoManager get managers => SettlementDaoManager(this);
 }
 
@@ -26502,6 +26503,8 @@ class SettlementDaoManager {
         _db.attachedDatabase,
         _db.memberSettlements,
       );
+  $$AuditEntriesTableTableManager get auditEntries =>
+      $$AuditEntriesTableTableManager(_db.attachedDatabase, _db.auditEntries);
 }
 
 mixin _$SettingsDaoMixin on DatabaseAccessor<AppDatabase> {

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -13,6 +12,8 @@ import '../../features/guest_special/presentation/guest_special_pages.dart';
 import '../../features/meals/presentation/meal_pages.dart';
 import '../../features/members/presentation/member_pages.dart';
 import '../../features/onboarding/presentation/onboarding_pages.dart';
+import '../../features/reports/presentation/report_pages.dart';
+import '../../features/reports/domain/report_services.dart';
 import '../../features/settlement/presentation/settlement_pages.dart';
 import '../providers/app_providers.dart';
 
@@ -451,13 +452,21 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 ),
               ),
               GoRoute(
-                path: 'reports/:reportId',
-                name: 'report-preview',
-                builder: (context, state) => FoundationPage(
-                  title: 'রিপোর্ট',
-                  icon: Icons.bar_chart_outlined,
-                  description: 'Report: ${state.pathParameters['reportId']}',
-                ),
+                path: 'reports',
+                name: 'reports',
+                builder: (context, state) => const ReportsHomePage(),
+                routes: [
+                  GoRoute(
+                    path: ':reportId',
+                    name: 'report-preview',
+                    builder: (context, state) => ReportPreviewPage(
+                      kind: ReportKind.values.firstWhere(
+                        (kind) => kind.name == state.pathParameters['reportId'],
+                        orElse: () => ReportKind.monthly,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
