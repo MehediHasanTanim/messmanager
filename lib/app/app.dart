@@ -1,40 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/theme/app_theme.dart';
 import 'config/app_environment.dart';
+import 'providers/app_providers.dart';
+import 'router/app_router.dart';
 
-class MessManagerApp extends StatelessWidget {
+class MessManagerApp extends ConsumerWidget {
   const MessManagerApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final environment = AppEnvironment.current;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final themeMode = ref.watch(themeModeProvider);
+    final router = ref.watch(appRouterProvider);
 
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'Mess Manager BD',
-      debugShowCheckedModeBanner: environment.isDevelopment,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF007A46)),
-        useMaterial3: true,
-      ),
-      home: ProjectPreparationScreen(environment: environment),
-    );
-  }
-}
-
-class ProjectPreparationScreen extends StatelessWidget {
-  const ProjectPreparationScreen({required this.environment, super.key});
-
-  final AppEnvironment environment;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Text(
-          'Mess Manager BD — ${environment.label} environment',
-          textAlign: TextAlign.center,
-        ),
-      ),
+      debugShowCheckedModeBanner: AppEnvironment.current.isDevelopment,
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeMode,
+      routerConfig: router,
     );
   }
 }
