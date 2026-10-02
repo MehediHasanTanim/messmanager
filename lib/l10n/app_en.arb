@@ -1,0 +1,58 @@
+{
+  "@@locale": "en",
+  "appTitle": "Mess Manager BD",
+  "chooseLanguage": "Choose Language",
+  "continueLabel": "Continue",
+  "welcome": "Welcome",
+  "setupMess": "Set Up My Mess",
+  "restoreBackup": "Restore Existing Backup",
+  "messName": "Mess name",
+  "address": "Area / address",
+  "managerName": "Manager name",
+  "phone": "Phone number",
+  "month": "Accounting month",
+  "startDate": "Start date",
+  "createPin": "Create App PIN",
+  "confirmPin": "Confirm PIN",
+  "pinMismatch": "PINs do not match. Try again.",
+  "enableBiometrics": "Enable biometrics",
+  "notNow": "Not now",
+  "unlock": "Unlock",
+  "pinForgotten": "Forgot PIN?",
+  "recoveryGuidance": "PIN Recovery Guidance",
+  "save": "Save",
+  "meal": "Meal",
+  "market": "Market / Grocery",
+  "deposit": "Deposit",
+  "due": "Due",
+  "settlement": "Settlement",
+  "utility": "Utility bill",
+  "balance": "Balance",
+  "required": "This field is required.",
+  "invalidPin": "Enter a 4 to 8 digit PIN.",
+  "setupComplete": "Everything is ready!",
+  "lockMessage": "Unlock to continue managing your mess."
+  ,"languageBangla": "বাংলা"
+  ,"languageEnglish": "English"
+  ,"welcomeMessage": "Keep meals, expenses, deposits and balances clear for everyone."
+  ,"createMessMessage": "Tell us a little about the mess you manage."
+  ,"managerMessage": "This person will manage the initial records."
+  ,"monthMessage": "Choose the month in which you want to start keeping accounts."
+  ,"secureMess": "Keep your mess private"
+  ,"pinMessage": "Use a 4 to 8 digit PIN. It is stored securely on this device."
+  ,"confirmPinMessage": "Enter the same PIN once more to protect the app."
+  ,"biometricMessage": "Use your device biometrics for a quicker, secure unlock. PIN will always remain available."
+  ,"biometricUnavailable": "Biometrics are not available on this device. You can continue with your PIN."
+  ,"biometricNotEnrolled": "No biometrics are enrolled on this device. You can add them later in device settings."
+  ,"biometricFailure": "We could not check biometrics right now. Your PIN remains available."
+  ,"enable": "Enable"
+  ,"finish": "Finish"
+  ,"tryAgain": "Try again"
+  ,"recoveryMessage": "For your privacy, the PIN cannot be recovered. If you forget it, restore a trusted backup after resetting the app. Keep your backup file in a safe place."
+  ,"back": "Back"
+  ,"appLock": "App lock"
+  ,"openSettings": "Open device settings"
+  ,"startupFailed": "Unable to start the app"
+  ,"startupFailedMessage": "Please restart Mess Manager BD."
+  ,"setupSaveFailed": "Unable to save setup. Please try again."
+}

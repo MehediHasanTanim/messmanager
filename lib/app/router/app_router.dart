@@ -5,12 +5,24 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/app_states.dart';
 import '../../features/foundation/presentation/foundation_page.dart';
+import '../../features/onboarding/presentation/onboarding_pages.dart';
 import '../providers/app_providers.dart';
 
 abstract final class AppRoutes {
   static const root = '/';
-  static const setup = '/setup/welcome';
+  static const splash = '/splash';
+  static const setup = '/setup/language';
+  static const language = '/setup/language';
+  static const welcome = '/setup/welcome';
+  static const createMess = '/setup/mess';
+  static const manager = '/setup/manager';
+  static const monthSetup = '/setup/month';
+  static const setupComplete = '/setup/complete';
+  static const createPin = '/setup/create-pin';
+  static const confirmPin = '/setup/confirm-pin';
+  static const biometrics = '/setup/biometrics';
   static const lock = '/lock';
+  static const recovery = '/lock/recovery';
   static const home = '/home';
   static const meals = '/meals';
   static const expenses = '/expenses';
@@ -25,11 +37,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final accessState = ref.watch(appAccessStateProvider);
 
   final router = GoRouter(
-    initialLocation: AppRoutes.home,
+    initialLocation: AppRoutes.splash,
     redirect: (context, state) {
       final path = state.uri.path;
       final onSetupRoute = path.startsWith('/setup');
-      final onLockRoute = path == AppRoutes.lock;
+      final onLockRoute = path.startsWith('/lock');
 
       if (accessState.needsSetup) {
         return onSetupRoute ? null : AppRoutes.setup;
@@ -37,7 +49,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (accessState.isLocked) {
         return onLockRoute ? null : AppRoutes.lock;
       }
-      if (onSetupRoute || onLockRoute || path == AppRoutes.root) {
+      if (path == AppRoutes.root) {
         return AppRoutes.home;
       }
       return null;
@@ -54,22 +66,64 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     ),
     routes: [
       GoRoute(
-        path: AppRoutes.setup,
+        path: AppRoutes.splash,
+        name: 'splash',
+        builder: (context, state) => const SplashPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.language,
+        name: 'setup-language',
+        builder: (context, state) => const LanguageSelectionPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.welcome,
         name: 'setup-welcome',
-        builder: (context, state) => const FoundationPage(
-          title: 'মেস সেটআপ',
-          icon: Icons.home_work_outlined,
-          description: 'Setup flow will be implemented in Phase 3.',
-        ),
+        builder: (context, state) => const WelcomePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.createMess,
+        name: 'setup-mess',
+        builder: (context, state) => const CreateMessPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.manager,
+        name: 'setup-manager',
+        builder: (context, state) => const ManagerSetupPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.monthSetup,
+        name: 'setup-month',
+        builder: (context, state) => const AccountingMonthSetupPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.setupComplete,
+        name: 'setup-complete',
+        builder: (context, state) => const SetupCompletePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.createPin,
+        name: 'create-pin',
+        builder: (context, state) => const CreatePinPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.confirmPin,
+        name: 'confirm-pin',
+        builder: (context, state) => const ConfirmPinPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.biometrics,
+        name: 'biometrics',
+        builder: (context, state) => const BiometricSetupPage(),
       ),
       GoRoute(
         path: AppRoutes.lock,
         name: 'app-lock',
-        builder: (context, state) => const FoundationPage(
-          title: 'অ্যাপ লক',
-          icon: Icons.lock_outline,
-          description: 'Local app lock will be implemented in Phase 3.',
-        ),
+        builder: (context, state) => const AppLockPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.recovery,
+        name: 'recovery-guidance',
+        builder: (context, state) => const RecoveryGuidancePage(),
       ),
       ShellRoute(
         builder: (context, state, child) =>

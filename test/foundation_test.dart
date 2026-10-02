@@ -11,12 +11,22 @@ import 'package:mess_manager_bd/core/widgets/app_content.dart';
 import 'package:mess_manager_bd/core/widgets/app_fields.dart';
 import 'package:mess_manager_bd/core/widgets/app_states.dart';
 import 'package:mess_manager_bd/features/foundation/presentation/foundation_page.dart';
+import 'package:mess_manager_bd/features/onboarding/presentation/onboarding_state.dart';
 
 void main() {
   testWidgets('app launches inside Riverpod and renders the shell', (
     tester,
   ) async {
-    await tester.pumpWidget(const ProviderScope(child: MessManagerApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          startupDestinationProvider.overrideWith(
+            (ref) async => StartupDestination.home,
+          ),
+        ],
+        child: const MessManagerApp(),
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('Mess Manager BD'), findsOneWidget);
@@ -39,13 +49,14 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('মেস সেটআপ'), findsWidgets);
+    expect(find.text('ভাষা নির্বাচন করুন'), findsOneWidget);
   });
 
   testWidgets('deep member route accepts an ID parameter', (tester) async {
     final container = ProviderContainer();
     addTearDown(container.dispose);
     final router = container.read(appRouterProvider);
+    router.go('/members/member-42');
 
     await tester.pumpWidget(
       UncontrolledProviderScope(
@@ -53,7 +64,6 @@ void main() {
         child: const MessManagerApp(),
       ),
     );
-    router.go('/members/member-42');
     await tester.pumpAndSettle();
 
     expect(find.text('Member ID: member-42'), findsOneWidget);
