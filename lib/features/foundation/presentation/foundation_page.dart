@@ -5,8 +5,10 @@ import 'package:go_router/go_router.dart';
 import '../../../app/providers/app_providers.dart';
 import '../../../app/router/app_router.dart';
 import '../../../core/theme/app_tokens.dart';
+import '../../../core/database/database_provider.dart';
 import '../../../core/widgets/app_content.dart';
 import '../../accounting/presentation/accounting_providers.dart';
+import '../../accounting/domain/dashboard_use_cases.dart';
 
 class FoundationPage extends StatelessWidget {
   const FoundationPage({
@@ -40,34 +42,83 @@ class HomeFoundationPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final mess = ref.watch(currentMessProvider);
     final month = ref.watch(currentAccountingMonthProvider);
-    return ListView(
-      padding: const EdgeInsets.all(AppSpacing.md),
-      children: [
-        AppSectionHeader(
-          title: month.when(
-            loading: () => 'হিসাবের মাস',
-            error: (_, _) => 'হিসাবের মাস',
-            data: (item) =>
-                item == null ? 'হিসাবের মাস নেই' : '${item.month}/${item.year}',
+    if (!mess.hasValue ||
+        !month.hasValue ||
+        mess.value == null ||
+        month.value == null) {
+      return ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: const [
+          AppSectionHeader(title: 'হিসাবের মাস'),
+          SizedBox(height: AppSpacing.md),
+          AppSummaryCard(
+            label: 'বর্তমান মিল রেট',
+            value: '৳0.00',
+            icon: Icons.restaurant_outlined,
           ),
-          actionLabel: 'পরিবর্তন',
-          onAction: () => context.push(AppRoutes.months),
-        ),
-        const SizedBox(height: AppSpacing.md),
-        const AppSummaryCard(
-          label: 'বর্তমান মিল রেট',
-          value: '৳0.00',
-          icon: Icons.restaurant_outlined,
-        ),
-        const SizedBox(height: AppSpacing.md),
-        const AppSummaryCard(
-          label: 'আজকের খাবার',
-          value: 'কোনো এন্ট্রি নেই',
-          icon: Icons.today_outlined,
-          color: AppColors.info,
-        ),
-      ],
+          SizedBox(height: AppSpacing.md),
+          AppSummaryCard(
+            label: 'আজকের খাবার',
+            value: 'কোনো এন্ট্রি নেই',
+            icon: Icons.today_outlined,
+            color: AppColors.info,
+          ),
+        ],
+      );
+    }
+    return FutureBuilder<DashboardSummary>(
+      future: GetDashboardSummary(ref.watch(appDatabaseProvider))(
+        messId: mess.value!.id,
+        monthId: month.value!.id,
+      ),
+      builder: (context, snapshot) => ListView(
+        padding: const EdgeInsets.all(AppSpacing.md),
+        children: [
+          AppSectionHeader(
+            title: '${month.value!.month}/${month.value!.year}',
+            actionLabel: 'পরিবর্তন',
+            onAction: () => context.push(AppRoutes.months),
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppSummaryCard(
+            label: 'বর্তমান মিল রেট',
+            value: snapshot.hasData
+                ? '৳${snapshot.data!.rate.displayTakaPerMeal.toStringAsFixed(2)}'
+                : '…',
+            icon: Icons.restaurant_outlined,
+          ),
+          const SizedBox(height: AppSpacing.md),
+          AppSummaryCard(
+            label: 'আজকের খাবার',
+            value: snapshot.hasData
+                ? '${(snapshot.data!.todayUnits / 100).toStringAsFixed(2)} মিল'
+                : '…',
+            icon: Icons.today_outlined,
+            color: AppColors.info,
+          ),
+          if (snapshot.hasData) ...[
+            AppSummaryCard(
+              label: 'সক্রিয় সদস্য',
+              value: '${snapshot.data!.activeMembers}',
+              icon: Icons.people_outline,
+            ),
+            AppSummaryCard(
+              label: 'মাসের জমা',
+              value:
+                  '৳${(snapshot.data!.depositMinor / 100).toStringAsFixed(2)}',
+              icon: Icons.account_balance_wallet_outlined,
+            ),
+            AppSummaryCard(
+              label: 'ইউটিলিটি বাকি/মোট',
+              value:
+                  '৳${(snapshot.data!.utilityMinor / 100).toStringAsFixed(2)}',
+              icon: Icons.bolt_outlined,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

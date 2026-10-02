@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/app_states.dart';
 import '../../features/accounting/presentation/accounting_month_pages.dart';
+import '../../features/accounting/presentation/meal_rate_pages.dart';
 import '../../features/expenses/presentation/expense_pages.dart';
 import '../../features/finance/presentation/finance_pages.dart';
 import '../../features/foundation/presentation/foundation_page.dart';
@@ -33,6 +34,7 @@ abstract final class AppRoutes {
   static const meals = '/meals';
   static const mealEntry = '/meals/entry';
   static const mealCalendar = '/meals/calendar';
+  static const mealRate = '/meals/rate';
   static const mealDayDetails = '/meals/day';
   static const memberMealDetails = '/meals/member';
   static const guestMeals = '/meals/guests';
@@ -176,6 +178,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'calendar',
                 name: 'meal-calendar',
                 builder: (context, state) => const MealCalendarPage(),
+              ),
+              GoRoute(
+                path: 'rate',
+                name: 'meal-rate',
+                builder: (context, state) => const CurrentMealRatePage(),
               ),
               GoRoute(
                 path: 'day/:date',

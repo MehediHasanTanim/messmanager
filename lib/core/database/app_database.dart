@@ -617,6 +617,14 @@ class MemberDao extends DatabaseAccessor<AppDatabase> with _$MemberDaoMixin {
     return query.watch();
   }
 
+  Future<int> activeCount(String messId) async {
+    final count = members.id.count();
+    final query = selectOnly(members)
+      ..addColumns([count])
+      ..where(members.messId.equals(messId) & members.status.equals('active'));
+    return (await query.getSingle()).read(count) ?? 0;
+  }
+
   /// Searches locally so the member list remains usable offline. A blank query
   /// returns every member matching [status].
   Stream<List<Member>> watchMembers(
@@ -846,6 +854,19 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
       );
     return ((await memberQuery.getSingle()).read(memberTotal) ?? 0) +
         ((await guestQuery.getSingle()).read(guestTotal) ?? 0);
+  }
+
+  Future<int> totalUnitsForDate(String messId, DateTime date) async {
+    final total = mealEntries.totalUnits.sum();
+    final query = selectOnly(mealEntries)
+      ..addColumns([total])
+      ..where(
+        mealEntries.messId.equals(messId) &
+            mealEntries.mealDate.equals(
+              DateTime(date.year, date.month, date.day),
+            ),
+      );
+    return (await query.getSingle()).read(total) ?? 0;
   }
 
   Stream<List<MealEntry>> watchForDate(String messId, DateTime date) {
@@ -1152,6 +1173,14 @@ class DepositDao extends DatabaseAccessor<AppDatabase> with _$DepositDaoMixin {
     return (await query.getSingle()).read(total) ?? 0;
   }
 
+  Future<int> totalForMonth(String accountingMonthId) async {
+    final total = deposits.amountMinor.sum();
+    final query = selectOnly(deposits)
+      ..addColumns([total])
+      ..where(deposits.accountingMonthId.equals(accountingMonthId));
+    return (await query.getSingle()).read(total) ?? 0;
+  }
+
   Future<void> _assertMonthOpen(String monthId) async {
     final month = await (select(
       accountingMonths,
@@ -1184,6 +1213,14 @@ class UtilityDao extends DatabaseAccessor<AppDatabase> with _$UtilityDaoMixin {
     final query = selectOnly(utilityBillAllocations)
       ..addColumns([total])
       ..where(utilityBillAllocations.utilityBillId.equals(utilityBillId));
+    return (await query.getSingle()).read(total) ?? 0;
+  }
+
+  Future<int> totalForMonth(String accountingMonthId) async {
+    final total = utilityBills.amountMinor.sum();
+    final query = selectOnly(utilityBills)
+      ..addColumns([total])
+      ..where(utilityBills.accountingMonthId.equals(accountingMonthId));
     return (await query.getSingle()).read(total) ?? 0;
   }
 
