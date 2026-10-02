@@ -13,6 +13,7 @@ import '../../features/guest_special/presentation/guest_special_pages.dart';
 import '../../features/meals/presentation/meal_pages.dart';
 import '../../features/members/presentation/member_pages.dart';
 import '../../features/onboarding/presentation/onboarding_pages.dart';
+import '../../features/settlement/presentation/settlement_pages.dart';
 import '../providers/app_providers.dart';
 
 abstract final class AppRoutes {
@@ -445,11 +446,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: 'settlement/:monthId',
                 name: 'settlement',
-                builder: (context, state) => FoundationPage(
-                  title: 'হিসাব নিষ্পত্তি',
-                  icon: Icons.calculate_outlined,
-                  description:
-                      'Accounting month: ${state.pathParameters['monthId']}',
+                builder: (context, state) => SettlementHomePage(
+                  monthId: state.pathParameters['monthId']!,
                 ),
               ),
               GoRoute(
