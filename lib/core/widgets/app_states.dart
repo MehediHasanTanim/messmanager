@@ -78,6 +78,77 @@ class AppErrorState extends StatelessWidget {
   }
 }
 
+class AppSkeletonLoading extends StatelessWidget {
+  const AppSkeletonLoading({this.lines = 4, super.key});
+  final int lines;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'লোড হচ্ছে',
+    child: ListView(
+      padding: const EdgeInsets.all(AppSpacing.md),
+      children: [
+        for (var i = 0; i < lines; i++)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.sm),
+            child: Container(
+              height: 56,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                borderRadius: BorderRadius.circular(AppRadius.field),
+              ),
+            ),
+          ),
+      ],
+    ),
+  );
+}
+
+class AppNoSearchResults extends AppEmptyState {
+  const AppNoSearchResults({super.key})
+    : super(
+        title: 'কোনো ফল পাওয়া যায়নি',
+        message: 'খোঁজার শব্দ বা ফিল্টার পরিবর্তন করুন।',
+        icon: Icons.search_off_outlined,
+      );
+}
+
+class AppClosedMonthRestriction extends AppErrorState {
+  const AppClosedMonthRestriction({super.key})
+    : super(
+        title: 'মাসটি বন্ধ',
+        message: 'বন্ধ মাসের তথ্য পরিবর্তন করা যাবে না।',
+        actionLabel: 'রিপোর্ট দেখুন',
+      );
+}
+
+class AppValidationSummary extends StatelessWidget {
+  const AppValidationSummary({required this.errors, super.key});
+  final List<String> errors;
+  @override
+  Widget build(BuildContext context) => Semantics(
+    liveRegion: true,
+    label: 'Validation errors',
+    child: Card(
+      color: AppColors.error.withValues(alpha: .08),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('তথ্যগুলো ঠিক করুন'),
+            for (final error in errors) Text('• $error'),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+void showAppSuccess(BuildContext context, String message) =>
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
+    );
+
 class _StateLayout extends StatelessWidget {
   const _StateLayout({
     required this.icon,

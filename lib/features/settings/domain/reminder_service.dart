@@ -38,6 +38,7 @@ class ReminderService {
           channelDescription: 'Daily meal entry reminders',
         ),
       ),
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
     );
   }
 

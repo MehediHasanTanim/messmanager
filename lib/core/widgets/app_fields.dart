@@ -9,6 +9,7 @@ class AppTextField extends StatelessWidget {
     this.validator,
     this.onChanged,
     this.textInputAction,
+    this.onFieldSubmitted,
     super.key,
   });
 
@@ -18,6 +19,7 @@ class AppTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
   final TextInputAction? textInputAction;
+  final ValueChanged<String>? onFieldSubmitted;
 
   @override
   Widget build(BuildContext context) {
@@ -26,7 +28,8 @@ class AppTextField extends StatelessWidget {
       decoration: InputDecoration(labelText: label, hintText: hintText),
       validator: validator,
       onChanged: onChanged,
-      textInputAction: textInputAction,
+      textInputAction: textInputAction ?? TextInputAction.next,
+      onFieldSubmitted: onFieldSubmitted,
     );
   }
 }
@@ -37,6 +40,7 @@ class AppAmountInput extends StatelessWidget {
     this.controller,
     this.validator,
     this.onChanged,
+    this.textInputAction = TextInputAction.done,
     super.key,
   });
 
@@ -44,6 +48,7 @@ class AppAmountInput extends StatelessWidget {
   final TextEditingController? controller;
   final String? Function(String?)? validator;
   final ValueChanged<String>? onChanged;
+  final TextInputAction textInputAction;
 
   @override
   Widget build(BuildContext context) {
@@ -59,6 +64,8 @@ class AppAmountInput extends StatelessWidget {
         ],
         validator: validator,
         onChanged: onChanged,
+        textInputAction: textInputAction,
+        onFieldSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
       ),
     );
   }
@@ -81,6 +88,8 @@ class AppSearchField extends StatelessWidget {
       textField: true,
       child: TextField(
         onChanged: onChanged,
+        textInputAction: TextInputAction.search,
+        onSubmitted: (_) => FocusManager.instance.primaryFocus?.unfocus(),
         decoration: InputDecoration(
           hintText: hintText,
           prefixIcon: const Icon(Icons.search),
