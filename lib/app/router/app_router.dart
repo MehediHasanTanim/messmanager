@@ -6,6 +6,7 @@ import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/app_states.dart';
 import '../../features/accounting/presentation/accounting_month_pages.dart';
 import '../../features/foundation/presentation/foundation_page.dart';
+import '../../features/guest_special/presentation/guest_special_pages.dart';
 import '../../features/meals/presentation/meal_pages.dart';
 import '../../features/members/presentation/member_pages.dart';
 import '../../features/onboarding/presentation/onboarding_pages.dart';
@@ -32,6 +33,10 @@ abstract final class AppRoutes {
   static const mealCalendar = '/meals/calendar';
   static const mealDayDetails = '/meals/day';
   static const memberMealDetails = '/meals/member';
+  static const guestMeals = '/meals/guests';
+  static const addGuestMeal = '/meals/guests/add';
+  static const specialMeals = '/meals/special';
+  static const addSpecialMeal = '/meals/special/add';
   static const expenses = '/expenses';
   static const members = '/members';
   static const addMember = '/members/add';
@@ -174,6 +179,59 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => MemberMealDetailsPage(
                   memberId: state.pathParameters['memberId']!,
                 ),
+              ),
+              GoRoute(
+                path: 'guests',
+                name: 'guest-meals',
+                builder: (context, state) => const GuestMealsPage(),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    name: 'guest-meal-add',
+                    builder: (context, state) => const GuestMealFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    name: 'guest-meal-details',
+                    builder: (context, state) =>
+                        GuestMealDetailsPage(id: state.pathParameters['id']!),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        name: 'guest-meal-edit',
+                        builder: (context, state) =>
+                            GuestMealFormPage(id: state.pathParameters['id']!),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'special',
+                name: 'special-meals',
+                builder: (context, state) => const SpecialMealsPage(),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    name: 'special-meal-add',
+                    builder: (context, state) => const SpecialMealFormPage(),
+                  ),
+                  GoRoute(
+                    path: ':id',
+                    name: 'special-meal-details',
+                    builder: (context, state) =>
+                        SpecialMealDetailsPage(id: state.pathParameters['id']!),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        name: 'special-meal-edit',
+                        builder: (context, state) => SpecialMealFormPage(
+                          id: state.pathParameters['id']!,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ],
           ),

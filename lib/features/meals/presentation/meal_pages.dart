@@ -64,6 +64,17 @@ class _MealsHomePageState extends ConsumerState<MealsHomePage> {
           icon: const Icon(Icons.summarize_outlined),
           label: const Text('দিনের সারাংশ'),
         ),
+        const SizedBox(height: AppSpacing.sm),
+        OutlinedButton.icon(
+          onPressed: () => context.push(AppRoutes.guestMeals),
+          icon: const Icon(Icons.person_add_alt_1_outlined),
+          label: const Text('অতিথি খাবার'),
+        ),
+        OutlinedButton.icon(
+          onPressed: () => context.push(AppRoutes.specialMeals),
+          icon: const Icon(Icons.celebration_outlined),
+          label: const Text('বিশেষ খাবার'),
+        ),
       ],
     );
   }

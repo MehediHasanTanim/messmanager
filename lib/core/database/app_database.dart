@@ -830,11 +830,19 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   }
 
   Future<int> totalUnitsForMonth(String accountingMonthId) async {
-    final total = mealEntries.totalUnits.sum();
-    final query = selectOnly(mealEntries)
-      ..addColumns([total])
+    final memberTotal = mealEntries.totalUnits.sum();
+    final memberQuery = selectOnly(mealEntries)
+      ..addColumns([memberTotal])
       ..where(mealEntries.accountingMonthId.equals(accountingMonthId));
-    return (await query.getSingle()).read(total) ?? 0;
+    final guestTotal = guestMeals.mealUnits.sum();
+    final guestQuery = selectOnly(guestMeals)
+      ..addColumns([guestTotal])
+      ..where(
+        guestMeals.accountingMonthId.equals(accountingMonthId) &
+            guestMeals.chargeMethod.isNotValue('directCharge'),
+      );
+    return ((await memberQuery.getSingle()).read(memberTotal) ?? 0) +
+        ((await guestQuery.getSingle()).read(guestTotal) ?? 0);
   }
 
   Stream<List<MealEntry>> watchForDate(String messId, DateTime date) {
@@ -880,6 +888,32 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
     return into(guestMeals).insert(guestMeal);
   }
 
+  Future<List<GuestMeal>> guestMealsForMonth(String accountingMonthId) {
+    final query = select(guestMeals)
+      ..where((table) => table.accountingMonthId.equals(accountingMonthId))
+      ..orderBy([(table) => OrderingTerm.desc(table.mealDate)]);
+    return query.get();
+  }
+
+  Future<GuestMeal?> guestMealById(String id) => (select(
+    guestMeals,
+  )..where((table) => table.id.equals(id))).getSingleOrNull();
+
+  Future<void> saveGuestMealForOpenMonth(GuestMealsCompanion guestMeal) {
+    return transaction(() async {
+      final monthId = guestMeal.accountingMonthId.value;
+      await _assertMonthOpen(monthId);
+      await into(guestMeals).insertOnConflictUpdate(guestMeal);
+    });
+  }
+
+  Future<void> deleteGuestMeal(String id, String accountingMonthId) {
+    return transaction(() async {
+      await _assertMonthOpen(accountingMonthId);
+      await (delete(guestMeals)..where((table) => table.id.equals(id))).go();
+    });
+  }
+
   Future<void> createSpecialMeal(
     SpecialMealsCompanion specialMeal,
     List<SpecialMealMembersCompanion> participants,
@@ -888,6 +922,60 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
       await into(specialMeals).insert(specialMeal);
       await batch((batch) => batch.insertAll(specialMealMembers, participants));
     });
+  }
+
+  Future<List<SpecialMeal>> specialMealsForMonth(String accountingMonthId) {
+    final query = select(specialMeals)
+      ..where((table) => table.accountingMonthId.equals(accountingMonthId))
+      ..orderBy([(table) => OrderingTerm.desc(table.date)]);
+    return query.get();
+  }
+
+  Future<SpecialMeal?> specialMealById(String id) => (select(
+    specialMeals,
+  )..where((table) => table.id.equals(id))).getSingleOrNull();
+
+  Future<List<SpecialMealMember>> specialMealParticipants(
+    String specialMealId,
+  ) {
+    return (select(
+      specialMealMembers,
+    )..where((table) => table.specialMealId.equals(specialMealId))).get();
+  }
+
+  Future<void> saveSpecialMealForOpenMonth(
+    SpecialMealsCompanion specialMeal,
+    List<SpecialMealMembersCompanion> participants,
+  ) {
+    return transaction(() async {
+      await _assertMonthOpen(specialMeal.accountingMonthId.value);
+      await into(specialMeals).insertOnConflictUpdate(specialMeal);
+      await (delete(
+            specialMealMembers,
+          )..where((table) => table.specialMealId.equals(specialMeal.id.value)))
+          .go();
+      await batch((batch) => batch.insertAll(specialMealMembers, participants));
+    });
+  }
+
+  Future<void> deleteSpecialMeal(String id, String accountingMonthId) {
+    return transaction(() async {
+      await _assertMonthOpen(accountingMonthId);
+      await (delete(
+        specialMealMembers,
+      )..where((table) => table.specialMealId.equals(id))).go();
+      await (delete(specialMeals)..where((table) => table.id.equals(id))).go();
+    });
+  }
+
+  Future<void> _assertMonthOpen(String monthId) async {
+    final month = await (select(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).getSingleOrNull();
+    if (month == null) throw StateError('Accounting month not found.');
+    if (month.status == 'closed') {
+      throw StateError('Closed accounting months cannot be edited.');
+    }
   }
 }
 
