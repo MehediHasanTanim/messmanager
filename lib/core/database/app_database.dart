@@ -979,7 +979,7 @@ class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
   }
 }
 
-@DriftAccessor(tables: [ExpenseCategories, Expenses])
+@DriftAccessor(tables: [ExpenseCategories, Expenses, AccountingMonths])
 class ExpenseDao extends DatabaseAccessor<AppDatabase> with _$ExpenseDaoMixin {
   ExpenseDao(super.db);
 
@@ -989,6 +989,70 @@ class ExpenseDao extends DatabaseAccessor<AppDatabase> with _$ExpenseDaoMixin {
 
   Future<void> createExpense(ExpensesCompanion expense) {
     return into(expenses).insert(expense);
+  }
+
+  Future<List<ExpenseCategory>> categoriesForMess(
+    String messId, {
+    bool activeOnly = false,
+  }) {
+    final query = select(expenseCategories)
+      ..where((table) {
+        var expression = table.messId.equals(messId);
+        if (activeOnly) expression = expression & table.isActive.equals(true);
+        return expression;
+      })
+      ..orderBy([
+        (table) => OrderingTerm.asc(table.type),
+        (table) => OrderingTerm.asc(table.sortOrder),
+        (table) => OrderingTerm.asc(table.name),
+      ]);
+    return query.get();
+  }
+
+  Future<ExpenseCategory?> categoryById(String id) => (select(
+    expenseCategories,
+  )..where((table) => table.id.equals(id))).getSingleOrNull();
+
+  Future<void> saveCategory(ExpenseCategoriesCompanion category) =>
+      into(expenseCategories).insertOnConflictUpdate(category);
+
+  Future<List<Expense>> expensesForMonth(
+    String accountingMonthId, {
+    String query = '',
+  }) {
+    final normalized = query.trim().toLowerCase();
+    final statement = select(expenses)
+      ..where((table) {
+        var expression = table.accountingMonthId.equals(accountingMonthId);
+        if (normalized.isNotEmpty) {
+          final pattern = '%$normalized%';
+          expression =
+              expression &
+              (table.description.lower().like(pattern) |
+                  table.vendor.lower().like(pattern));
+        }
+        return expression;
+      })
+      ..orderBy([(table) => OrderingTerm.desc(table.date)]);
+    return statement.get();
+  }
+
+  Future<Expense?> expenseById(String id) => (select(
+    expenses,
+  )..where((table) => table.id.equals(id))).getSingleOrNull();
+
+  Future<void> saveExpenseForOpenMonth(ExpensesCompanion expense) {
+    return transaction(() async {
+      await _assertMonthOpen(expense.accountingMonthId.value);
+      await into(expenses).insertOnConflictUpdate(expense);
+    });
+  }
+
+  Future<void> deleteExpense(String id, String accountingMonthId) {
+    return transaction(() async {
+      await _assertMonthOpen(accountingMonthId);
+      await (delete(expenses)..where((table) => table.id.equals(id))).go();
+    });
   }
 
   Future<int> totalForMonth(String accountingMonthId) async {
@@ -1008,6 +1072,27 @@ class ExpenseDao extends DatabaseAccessor<AppDatabase> with _$ExpenseDaoMixin {
             expenses.affectsMealRate.equals(true),
       );
     return (await query.getSingle()).read(total) ?? 0;
+  }
+
+  Future<int> memberPaidTotalForMonth(String accountingMonthId) async {
+    final total = expenses.amountMinor.sum();
+    final query = selectOnly(expenses)
+      ..addColumns([total])
+      ..where(
+        expenses.accountingMonthId.equals(accountingMonthId) &
+            expenses.paidByMemberId.isNotNull(),
+      );
+    return (await query.getSingle()).read(total) ?? 0;
+  }
+
+  Future<void> _assertMonthOpen(String monthId) async {
+    final month = await (select(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).getSingleOrNull();
+    if (month == null) throw StateError('Accounting month not found.');
+    if (month.status == 'closed') {
+      throw StateError('Closed accounting months cannot be edited.');
+    }
   }
 }
 

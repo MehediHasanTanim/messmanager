@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/app_states.dart';
 import '../../features/accounting/presentation/accounting_month_pages.dart';
+import '../../features/expenses/presentation/expense_pages.dart';
 import '../../features/foundation/presentation/foundation_page.dart';
 import '../../features/guest_special/presentation/guest_special_pages.dart';
 import '../../features/meals/presentation/meal_pages.dart';
@@ -38,6 +39,9 @@ abstract final class AppRoutes {
   static const specialMeals = '/meals/special';
   static const addSpecialMeal = '/meals/special/add';
   static const expenses = '/expenses';
+  static const expenseList = '/expenses/list';
+  static const addExpense = '/expenses/add';
+  static const expenseCategories = '/expenses/categories';
   static const members = '/members';
   static const addMember = '/members/add';
   static const months = '/months';
@@ -238,11 +242,43 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.expenses,
             name: 'expenses',
-            builder: (context, state) => const FoundationPage(
-              title: 'বাজার / খরচ',
-              icon: Icons.account_balance_wallet_outlined,
-              description: 'Expense management is planned for Phase 7.',
-            ),
+            builder: (context, state) => const ExpenseHomePage(),
+            routes: [
+              GoRoute(
+                path: 'list',
+                name: 'expense-list',
+                builder: (context, state) => const ExpenseListPage(),
+                routes: [
+                  GoRoute(
+                    path: ':id',
+                    name: 'expense-details',
+                    builder: (context, state) =>
+                        ExpenseDetailsPage(id: state.pathParameters['id']!),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        name: 'expense-edit',
+                        builder: (context, state) =>
+                            ExpenseFormPage(id: state.pathParameters['id']!),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'add',
+                name: 'expense-add',
+                builder: (context, state) => ExpenseFormPage(
+                  initialType: state.uri.queryParameters['type'],
+                  memberPaid: state.uri.queryParameters['payer'] == 'member',
+                ),
+              ),
+              GoRoute(
+                path: 'categories',
+                name: 'expense-categories',
+                builder: (context, state) => const ExpenseCategoriesPage(),
+              ),
+            ],
           ),
           GoRoute(
             path: AppRoutes.members,
