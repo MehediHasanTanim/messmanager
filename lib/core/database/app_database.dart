@@ -1,0 +1,808 @@
+import 'dart:io';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+part 'app_database.g.dart';
+
+class Messes extends Table {
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get address => text().nullable()();
+  TextColumn get managerName => text()();
+  TextColumn get managerPhone => text().nullable()();
+  TextColumn get currencyCode => text().withDefault(const Constant('BDT'))();
+  TextColumn get defaultLanguage => text().withDefault(const Constant('bn'))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class Members extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get name => text()();
+  TextColumn get nickname => text().nullable()();
+  TextColumn get phone => text().nullable()();
+  TextColumn get roomNumber => text().nullable()();
+  TextColumn get avatarPath => text().nullable()();
+  DateTimeColumn get joinDate => dateTime()();
+  DateTimeColumn get leaveDate => dateTime().nullable()();
+  IntColumn get openingBalanceMinor =>
+      integer().withDefault(const Constant(0))();
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    "CHECK (status IN ('active', 'inactive', 'left'))",
+    'CHECK (leave_date IS NULL OR leave_date >= join_date)',
+  ];
+}
+
+class AccountingMonths extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  IntColumn get year => integer()();
+  IntColumn get month => integer()();
+  DateTimeColumn get startDate => dateTime()();
+  DateTimeColumn get endDate => dateTime().nullable()();
+  TextColumn get status => text().withDefault(const Constant('active'))();
+  IntColumn get finalMealRateScaled => integer().nullable()();
+  DateTimeColumn get closedAt => dateTime().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'UNIQUE(mess_id, year, month)',
+    'CHECK (year >= 2000)',
+    'CHECK (month BETWEEN 1 AND 12)',
+    "CHECK (status IN ('active', 'draftSettlement', 'closed'))",
+  ];
+}
+
+class MealEntries extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get accountingMonthId =>
+      text().references(AccountingMonths, #id)();
+  TextColumn get memberId => text().references(Members, #id)();
+  DateTimeColumn get mealDate => dateTime()();
+  IntColumn get breakfastUnits => integer().withDefault(const Constant(0))();
+  IntColumn get lunchUnits => integer().withDefault(const Constant(0))();
+  IntColumn get dinnerUnits => integer().withDefault(const Constant(0))();
+  IntColumn get extraUnits => integer().withDefault(const Constant(0))();
+  IntColumn get totalUnits => integer().withDefault(const Constant(0))();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'UNIQUE(mess_id, member_id, meal_date)',
+    'CHECK (breakfast_units >= 0)',
+    'CHECK (lunch_units >= 0)',
+    'CHECK (dinner_units >= 0)',
+    'CHECK (extra_units >= 0)',
+    'CHECK (total_units >= 0)',
+  ];
+}
+
+class GuestMeals extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get accountingMonthId =>
+      text().references(AccountingMonths, #id)();
+  TextColumn get hostMemberId => text().references(Members, #id)();
+  DateTimeColumn get mealDate => dateTime()();
+  TextColumn get guestName => text().nullable()();
+  IntColumn get guestCount => integer().withDefault(const Constant(1))();
+  IntColumn get mealUnits => integer()();
+  TextColumn get chargeMethod => text()();
+  IntColumn get directChargeMinor => integer().withDefault(const Constant(0))();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'CHECK (guest_count >= 1)',
+    'CHECK (meal_units >= 0)',
+    'CHECK (direct_charge_minor >= 0)',
+    "CHECK (charge_method IN ('addToHostMeal', 'directCharge', 'generalMess'))",
+  ];
+}
+
+class SpecialMeals extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get accountingMonthId =>
+      text().references(AccountingMonths, #id)();
+  DateTimeColumn get date => dateTime()();
+  TextColumn get title => text()();
+  IntColumn get totalCostMinor => integer()();
+  TextColumn get distributionMethod => text()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'CHECK (total_cost_minor > 0)',
+    "CHECK (distribution_method IN ('equal', 'custom', 'oneMember'))",
+  ];
+}
+
+class SpecialMealMembers extends Table {
+  TextColumn get id => text()();
+  TextColumn get specialMealId => text().references(SpecialMeals, #id)();
+  TextColumn get memberId => text().references(Members, #id)();
+  IntColumn get shareAmountMinor => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'UNIQUE(special_meal_id, member_id)',
+    'CHECK (share_amount_minor >= 0)',
+  ];
+}
+
+class ExpenseCategories extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get name => text()();
+  TextColumn get nameBn => text().nullable()();
+  TextColumn get type => text()();
+  BoolColumn get isSystem => boolean().withDefault(const Constant(false))();
+  BoolColumn get isActive => boolean().withDefault(const Constant(true))();
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'UNIQUE(mess_id, name)',
+    "CHECK (type IN ('mealExpense', 'sharedExpense', 'other'))",
+  ];
+}
+
+class Expenses extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get accountingMonthId =>
+      text().references(AccountingMonths, #id)();
+  DateTimeColumn get date => dateTime()();
+  TextColumn get categoryId => text().references(ExpenseCategories, #id)();
+  IntColumn get amountMinor => integer()();
+  TextColumn get description => text().nullable()();
+  TextColumn get vendor => text().nullable()();
+  TextColumn get paidByMemberId => text().nullable().references(Members, #id)();
+  TextColumn get paymentSource => text().nullable()();
+  BoolColumn get affectsMealRate =>
+      boolean().withDefault(const Constant(false))();
+  TextColumn get distributionMethod => text().nullable()();
+  TextColumn get receiptPath => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const ['CHECK (amount_minor > 0)'];
+}
+
+class UtilityBills extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get accountingMonthId =>
+      text().references(AccountingMonths, #id)();
+  TextColumn get billType => text()();
+  IntColumn get amountMinor => integer()();
+  DateTimeColumn get billingMonth => dateTime()();
+  DateTimeColumn get dueDate => dateTime().nullable()();
+  DateTimeColumn get paidDate => dateTime().nullable()();
+  TextColumn get status => text().withDefault(const Constant('unpaid'))();
+  TextColumn get paidByMemberId => text().nullable().references(Members, #id)();
+  TextColumn get distributionMethod => text()();
+  TextColumn get receiptPath => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'CHECK (amount_minor > 0)',
+    "CHECK (status IN ('paid', 'unpaid'))",
+  ];
+}
+
+class UtilityBillAllocations extends Table {
+  TextColumn get id => text()();
+  TextColumn get utilityBillId => text().references(UtilityBills, #id)();
+  TextColumn get memberId => text().references(Members, #id)();
+  IntColumn get amountMinor => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'UNIQUE(utility_bill_id, member_id)',
+    'CHECK (amount_minor >= 0)',
+  ];
+}
+
+class Deposits extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get accountingMonthId =>
+      text().references(AccountingMonths, #id)();
+  TextColumn get memberId => text().references(Members, #id)();
+  DateTimeColumn get date => dateTime()();
+  IntColumn get amountMinor => integer()();
+  TextColumn get paymentMethod => text()();
+  TextColumn get reference => text().nullable()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'CHECK (amount_minor > 0)',
+    "CHECK (payment_method IN ('cash', 'bkash', 'nagad', 'rocket', 'bank', 'other'))",
+  ];
+}
+
+class MemberAdjustments extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get accountingMonthId =>
+      text().references(AccountingMonths, #id)();
+  TextColumn get memberId => text().references(Members, #id)();
+  DateTimeColumn get date => dateTime()();
+  TextColumn get type => text()();
+  TextColumn get direction => text()();
+  IntColumn get amountMinor => integer()();
+  TextColumn get reason => text()();
+  TextColumn get notes => text().nullable()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'CHECK (amount_minor > 0)',
+    "CHECK (direction IN ('debit', 'credit'))",
+  ];
+}
+
+class Settlements extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get accountingMonthId =>
+      text().references(AccountingMonths, #id)();
+  IntColumn get totalMealUnits => integer()();
+  IntColumn get totalMealExpenseMinor => integer()();
+  IntColumn get mealRateScaled => integer()();
+  IntColumn get totalSharedExpenseMinor => integer()();
+  IntColumn get totalDepositMinor => integer()();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+  DateTimeColumn get closedAt => dateTime().nullable()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'UNIQUE(accounting_month_id)',
+    'CHECK (total_meal_units >= 0)',
+    'CHECK (total_meal_expense_minor >= 0)',
+    'CHECK (meal_rate_scaled >= 0)',
+    'CHECK (total_shared_expense_minor >= 0)',
+    'CHECK (total_deposit_minor >= 0)',
+  ];
+}
+
+class MemberSettlements extends Table {
+  TextColumn get id => text()();
+  TextColumn get settlementId => text().references(Settlements, #id)();
+  TextColumn get memberId => text().references(Members, #id)();
+  IntColumn get mealUnits => integer().withDefault(const Constant(0))();
+  IntColumn get mealCostMinor => integer().withDefault(const Constant(0))();
+  IntColumn get guestChargeMinor => integer().withDefault(const Constant(0))();
+  IntColumn get specialMealChargeMinor =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get utilityShareMinor => integer().withDefault(const Constant(0))();
+  IntColumn get sharedExpenseShareMinor =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get adjustmentDebitMinor =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get adjustmentCreditMinor =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get previousBalanceMinor =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get depositMinor => integer().withDefault(const Constant(0))();
+  IntColumn get memberPaidExpenseMinor =>
+      integer().withDefault(const Constant(0))();
+  IntColumn get totalPayableMinor => integer()();
+  IntColumn get totalCreditMinor => integer()();
+  IntColumn get finalBalanceMinor => integer()();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'UNIQUE(settlement_id, member_id)',
+    'CHECK (meal_units >= 0)',
+    'CHECK (meal_cost_minor >= 0)',
+    'CHECK (guest_charge_minor >= 0)',
+    'CHECK (special_meal_charge_minor >= 0)',
+    'CHECK (utility_share_minor >= 0)',
+    'CHECK (shared_expense_share_minor >= 0)',
+    'CHECK (adjustment_debit_minor >= 0)',
+    'CHECK (adjustment_credit_minor >= 0)',
+    'CHECK (deposit_minor >= 0)',
+    'CHECK (member_paid_expense_minor >= 0)',
+  ];
+}
+
+class Attachments extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get entityType => text()();
+  TextColumn get entityId => text()();
+  TextColumn get relativePath => text()();
+  TextColumn get mimeType => text().nullable()();
+  IntColumn get byteSize => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const ['CHECK (byte_size >= 0)'];
+}
+
+class Reminders extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get type => text()();
+  BoolColumn get isEnabled => boolean().withDefault(const Constant(true))();
+  TextColumn get scheduleJson => text()();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const ['UNIQUE(mess_id, type)'];
+}
+
+class AppSettings extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().nullable().references(Messes, #id)();
+  TextColumn get settingKey => text()();
+  TextColumn get valueJson => text()();
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const ['UNIQUE(mess_id, setting_key)'];
+}
+
+class AuditEntries extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().references(Messes, #id)();
+  TextColumn get entityType => text()();
+  TextColumn get entityId => text()();
+  TextColumn get action => text()();
+  TextColumn get oldValueJson => text().nullable()();
+  TextColumn get newValueJson => text().nullable()();
+  DateTimeColumn get timestamp => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class BackupMetadata extends Table {
+  TextColumn get id => text()();
+  TextColumn get messId => text().nullable().references(Messes, #id)();
+  TextColumn get fileName => text()();
+  TextColumn get relativePath => text()();
+  IntColumn get formatVersion => integer()();
+  IntColumn get databaseVersion => integer()();
+  IntColumn get byteSize => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+
+  @override
+  List<String> get customConstraints => const [
+    'CHECK (format_version >= 1)',
+    'CHECK (database_version >= 1)',
+    'CHECK (byte_size >= 0)',
+  ];
+}
+
+@DriftDatabase(
+  tables: [
+    Messes,
+    Members,
+    AccountingMonths,
+    MealEntries,
+    GuestMeals,
+    SpecialMeals,
+    SpecialMealMembers,
+    ExpenseCategories,
+    Expenses,
+    UtilityBills,
+    UtilityBillAllocations,
+    Deposits,
+    MemberAdjustments,
+    Settlements,
+    MemberSettlements,
+    Attachments,
+    Reminders,
+    AppSettings,
+    AuditEntries,
+    BackupMetadata,
+  ],
+  daos: [
+    MessDao,
+    MemberDao,
+    AccountingMonthDao,
+    MealDao,
+    ExpenseDao,
+    DepositDao,
+    UtilityDao,
+    SettlementDao,
+    SettingsDao,
+  ],
+)
+class AppDatabase extends _$AppDatabase {
+  AppDatabase() : super(_openConnection());
+
+  AppDatabase.forTesting(super.executor);
+
+  static const currentSchemaVersion = 1;
+
+  @override
+  int get schemaVersion => currentSchemaVersion;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onCreate: (migrator) async {
+      await migrator.createAll();
+      await _createIndexes();
+    },
+    onUpgrade: (migrator, from, to) async {
+      // Each future version must add a tested, non-destructive migration here.
+      if (from < 1) {
+        await migrator.createAll();
+        await _createIndexes();
+      }
+    },
+    beforeOpen: (details) async {
+      await customStatement('PRAGMA foreign_keys = ON');
+    },
+  );
+
+  Future<void> _createIndexes() async {
+    const statements = [
+      'CREATE INDEX IF NOT EXISTS idx_members_mess_status ON members(mess_id, status)',
+      'CREATE INDEX IF NOT EXISTS idx_meal_entries_month ON meal_entries(accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_meal_entries_member_date ON meal_entries(member_id, meal_date)',
+      'CREATE INDEX IF NOT EXISTS idx_meal_entries_date ON meal_entries(meal_date)',
+      'CREATE INDEX IF NOT EXISTS idx_expenses_month ON expenses(accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)',
+      'CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id)',
+      'CREATE INDEX IF NOT EXISTS idx_deposits_month ON deposits(accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_deposits_member_date ON deposits(member_id, date)',
+      'CREATE INDEX IF NOT EXISTS idx_utility_bills_month ON utility_bills(accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_adjustments_member_month ON member_adjustments(member_id, accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_audit_entries_entity ON audit_entries(entity_type, entity_id)',
+    ];
+    for (final statement in statements) {
+      await customStatement(statement);
+    }
+  }
+}
+
+LazyDatabase _openConnection() {
+  return LazyDatabase(() async {
+    final directory = await getApplicationSupportDirectory();
+    final file = File(p.join(directory.path, 'mess_manager_bd.sqlite'));
+    return NativeDatabase.createInBackground(file);
+  });
+}
+
+@DriftAccessor(tables: [Messes])
+class MessDao extends DatabaseAccessor<AppDatabase> with _$MessDaoMixin {
+  MessDao(super.db);
+
+  Future<void> create(MessesCompanion mess) => into(messes).insert(mess);
+
+  Future<MessesData?> findById(String id) {
+    return (select(
+      messes,
+    )..where((table) => table.id.equals(id))).getSingleOrNull();
+  }
+
+  Stream<MessesData?> watchById(String id) {
+    return (select(
+      messes,
+    )..where((table) => table.id.equals(id))).watchSingleOrNull();
+  }
+}
+
+@DriftAccessor(tables: [Members])
+class MemberDao extends DatabaseAccessor<AppDatabase> with _$MemberDaoMixin {
+  MemberDao(super.db);
+
+  Future<void> create(MembersCompanion member) => into(members).insert(member);
+
+  Future<bool> updateMember(MembersCompanion member) {
+    return update(members).replace(member);
+  }
+
+  Future<int> deleteById(String id) {
+    return (delete(members)..where((table) => table.id.equals(id))).go();
+  }
+
+  Stream<List<Member>> watchActiveMembers(String messId) {
+    final query = select(members)
+      ..where(
+        (table) => table.messId.equals(messId) & table.status.equals('active'),
+      )
+      ..orderBy([(table) => OrderingTerm.asc(table.name)]);
+    return query.watch();
+  }
+
+  Future<Member?> findById(String id) {
+    return (select(
+      members,
+    )..where((table) => table.id.equals(id))).getSingleOrNull();
+  }
+}
+
+@DriftAccessor(tables: [AccountingMonths])
+class AccountingMonthDao extends DatabaseAccessor<AppDatabase>
+    with _$AccountingMonthDaoMixin {
+  AccountingMonthDao(super.db);
+
+  Future<void> create(AccountingMonthsCompanion month) {
+    return into(accountingMonths).insert(month);
+  }
+
+  Future<AccountingMonth?> activeForMess(String messId) {
+    return (select(accountingMonths)..where(
+          (table) =>
+              table.messId.equals(messId) & table.status.equals('active'),
+        ))
+        .getSingleOrNull();
+  }
+
+  Stream<List<AccountingMonth>> watchForMess(String messId) {
+    final query = select(accountingMonths)
+      ..where((table) => table.messId.equals(messId))
+      ..orderBy([
+        (table) => OrderingTerm.desc(table.year),
+        (table) => OrderingTerm.desc(table.month),
+      ]);
+    return query.watch();
+  }
+}
+
+@DriftAccessor(
+  tables: [MealEntries, GuestMeals, SpecialMeals, SpecialMealMembers],
+)
+class MealDao extends DatabaseAccessor<AppDatabase> with _$MealDaoMixin {
+  MealDao(super.db);
+
+  Future<void> saveEntry(MealEntriesCompanion entry) {
+    return into(mealEntries).insertOnConflictUpdate(entry);
+  }
+
+  Future<void> saveDailyEntries(List<MealEntriesCompanion> entries) {
+    return transaction(() async {
+      for (final entry in entries) {
+        await into(mealEntries).insertOnConflictUpdate(entry);
+      }
+    });
+  }
+
+  Future<int> totalUnitsForMonth(String accountingMonthId) async {
+    final total = mealEntries.totalUnits.sum();
+    final query = selectOnly(mealEntries)
+      ..addColumns([total])
+      ..where(mealEntries.accountingMonthId.equals(accountingMonthId));
+    return (await query.getSingle()).read(total) ?? 0;
+  }
+
+  Stream<List<MealEntry>> watchForDate(String messId, DateTime date) {
+    final query = select(mealEntries)
+      ..where(
+        (table) => table.messId.equals(messId) & table.mealDate.equals(date),
+      );
+    return query.watch();
+  }
+
+  Future<void> createGuestMeal(GuestMealsCompanion guestMeal) {
+    return into(guestMeals).insert(guestMeal);
+  }
+
+  Future<void> createSpecialMeal(
+    SpecialMealsCompanion specialMeal,
+    List<SpecialMealMembersCompanion> participants,
+  ) {
+    return transaction(() async {
+      await into(specialMeals).insert(specialMeal);
+      await batch((batch) => batch.insertAll(specialMealMembers, participants));
+    });
+  }
+}
+
+@DriftAccessor(tables: [ExpenseCategories, Expenses])
+class ExpenseDao extends DatabaseAccessor<AppDatabase> with _$ExpenseDaoMixin {
+  ExpenseDao(super.db);
+
+  Future<void> createCategory(ExpenseCategoriesCompanion category) {
+    return into(expenseCategories).insert(category);
+  }
+
+  Future<void> createExpense(ExpensesCompanion expense) {
+    return into(expenses).insert(expense);
+  }
+
+  Future<int> totalForMonth(String accountingMonthId) async {
+    final total = expenses.amountMinor.sum();
+    final query = selectOnly(expenses)
+      ..addColumns([total])
+      ..where(expenses.accountingMonthId.equals(accountingMonthId));
+    return (await query.getSingle()).read(total) ?? 0;
+  }
+
+  Future<int> mealExpenseTotalForMonth(String accountingMonthId) async {
+    final total = expenses.amountMinor.sum();
+    final query = selectOnly(expenses)
+      ..addColumns([total])
+      ..where(
+        expenses.accountingMonthId.equals(accountingMonthId) &
+            expenses.affectsMealRate.equals(true),
+      );
+    return (await query.getSingle()).read(total) ?? 0;
+  }
+}
+
+@DriftAccessor(tables: [Deposits])
+class DepositDao extends DatabaseAccessor<AppDatabase> with _$DepositDaoMixin {
+  DepositDao(super.db);
+
+  Future<void> create(DepositsCompanion deposit) =>
+      into(deposits).insert(deposit);
+
+  Future<int> totalForMemberInMonth(
+    String memberId,
+    String accountingMonthId,
+  ) async {
+    final total = deposits.amountMinor.sum();
+    final query = selectOnly(deposits)
+      ..addColumns([total])
+      ..where(
+        deposits.memberId.equals(memberId) &
+            deposits.accountingMonthId.equals(accountingMonthId),
+      );
+    return (await query.getSingle()).read(total) ?? 0;
+  }
+}
+
+@DriftAccessor(tables: [UtilityBills, UtilityBillAllocations])
+class UtilityDao extends DatabaseAccessor<AppDatabase> with _$UtilityDaoMixin {
+  UtilityDao(super.db);
+
+  Future<void> createBillWithAllocations(
+    UtilityBillsCompanion bill,
+    List<UtilityBillAllocationsCompanion> allocations,
+  ) {
+    return transaction(() async {
+      await into(utilityBills).insert(bill);
+      await batch(
+        (batch) => batch.insertAll(utilityBillAllocations, allocations),
+      );
+    });
+  }
+
+  Future<int> allocatedTotal(String utilityBillId) async {
+    final total = utilityBillAllocations.amountMinor.sum();
+    final query = selectOnly(utilityBillAllocations)
+      ..addColumns([total])
+      ..where(utilityBillAllocations.utilityBillId.equals(utilityBillId));
+    return (await query.getSingle()).read(total) ?? 0;
+  }
+}
+
+@DriftAccessor(tables: [Settlements, MemberSettlements])
+class SettlementDao extends DatabaseAccessor<AppDatabase>
+    with _$SettlementDaoMixin {
+  SettlementDao(super.db);
+
+  Future<void> saveSnapshot(
+    SettlementsCompanion settlement,
+    List<MemberSettlementsCompanion> memberSnapshots,
+  ) {
+    return transaction(() async {
+      await into(settlements).insert(settlement);
+      await batch(
+        (batch) => batch.insertAll(memberSettlements, memberSnapshots),
+      );
+    });
+  }
+
+  Future<Settlement?> forMonth(String accountingMonthId) {
+    return (select(settlements)
+          ..where((table) => table.accountingMonthId.equals(accountingMonthId)))
+        .getSingleOrNull();
+  }
+}
+
+@DriftAccessor(
+  tables: [AppSettings, Reminders, Attachments, AuditEntries, BackupMetadata],
+)
+class SettingsDao extends DatabaseAccessor<AppDatabase>
+    with _$SettingsDaoMixin {
+  SettingsDao(super.db);
+
+  Future<void> saveSetting(AppSettingsCompanion setting) {
+    return into(appSettings).insertOnConflictUpdate(setting);
+  }
+
+  Future<AppSetting?> findSetting(String messId, String key) {
+    return (select(appSettings)..where(
+          (table) => table.messId.equals(messId) & table.settingKey.equals(key),
+        ))
+        .getSingleOrNull();
+  }
+
+  Future<void> recordAudit(AuditEntriesCompanion entry) {
+    return into(auditEntries).insert(entry);
+  }
+}
