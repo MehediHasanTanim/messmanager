@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/app_states.dart';
+import '../../features/accounting/presentation/accounting_month_pages.dart';
 import '../../features/foundation/presentation/foundation_page.dart';
+import '../../features/members/presentation/member_pages.dart';
 import '../../features/onboarding/presentation/onboarding_pages.dart';
 import '../providers/app_providers.dart';
 
@@ -27,6 +29,9 @@ abstract final class AppRoutes {
   static const meals = '/meals';
   static const expenses = '/expenses';
   static const members = '/members';
+  static const addMember = '/members/add';
+  static const months = '/months';
+  static const startMonth = '/months/start';
   static const more = '/more';
   static const settings = '/more/settings';
   static const settlement = '/more/settlement';
@@ -155,19 +160,101 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: AppRoutes.members,
             name: 'members',
-            builder: (context, state) => const FoundationPage(
-              title: 'সদস্য',
-              icon: Icons.groups_outlined,
-              description: 'Member management is planned for Phase 4.',
-            ),
+            builder: (context, state) => const MemberListPage(),
             routes: [
+              GoRoute(
+                path: 'add',
+                name: 'member-add',
+                builder: (context, state) => const MemberFormPage(),
+              ),
               GoRoute(
                 path: ':memberId',
                 name: 'member-details',
-                builder: (context, state) => FoundationPage(
-                  title: 'সদস্যের বিবরণ',
-                  icon: Icons.person_outline,
-                  description: 'Member ID: ${state.pathParameters['memberId']}',
+                builder: (context, state) => MemberDetailsPage(
+                  memberId: state.pathParameters['memberId']!,
+                ),
+                routes: [
+                  GoRoute(
+                    path: 'edit',
+                    name: 'member-edit',
+                    builder: (context, state) => MemberFormPage(
+                      memberId: state.pathParameters['memberId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'status',
+                    name: 'member-status',
+                    builder: (context, state) => MemberStatusPage(
+                      memberId: state.pathParameters['memberId']!,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'financial',
+                    name: 'member-financial',
+                    builder: (context, state) => MemberRecordsPage(
+                      memberId: state.pathParameters['memberId']!,
+                      kind: MemberRecordKind.financial,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'meals',
+                    name: 'member-meals',
+                    builder: (context, state) => MemberRecordsPage(
+                      memberId: state.pathParameters['memberId']!,
+                      kind: MemberRecordKind.meals,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'deposits',
+                    name: 'member-deposits',
+                    builder: (context, state) => MemberRecordsPage(
+                      memberId: state.pathParameters['memberId']!,
+                      kind: MemberRecordKind.deposits,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'expenses',
+                    name: 'member-expenses',
+                    builder: (context, state) => MemberRecordsPage(
+                      memberId: state.pathParameters['memberId']!,
+                      kind: MemberRecordKind.expenses,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'adjustments',
+                    name: 'member-adjustments',
+                    builder: (context, state) => MemberRecordsPage(
+                      memberId: state.pathParameters['memberId']!,
+                      kind: MemberRecordKind.adjustments,
+                    ),
+                  ),
+                  GoRoute(
+                    path: 'history',
+                    name: 'member-history',
+                    builder: (context, state) => MemberRecordsPage(
+                      memberId: state.pathParameters['memberId']!,
+                      kind: MemberRecordKind.history,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          GoRoute(
+            path: AppRoutes.months,
+            name: 'accounting-months',
+            builder: (context, state) => const AccountingMonthSelectorPage(),
+            routes: [
+              GoRoute(
+                path: 'start',
+                name: 'accounting-month-start',
+                builder: (context, state) => const StartAccountingMonthPage(),
+              ),
+              GoRoute(
+                path: ':monthId',
+                name: 'accounting-month-details',
+                builder: (context, state) => AccountingMonthDetailsPage(
+                  monthId: state.pathParameters['monthId']!,
                 ),
               ),
             ],

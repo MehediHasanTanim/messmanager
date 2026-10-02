@@ -523,22 +523,28 @@ class AppDatabase extends _$AppDatabase {
     },
     beforeOpen: (details) async {
       await customStatement('PRAGMA foreign_keys = ON');
+      // `CREATE INDEX IF NOT EXISTS` also brings existing installations up to
+      // date without a destructive schema migration.
+      await _createIndexes();
     },
   );
 
   Future<void> _createIndexes() async {
     const statements = [
       'CREATE INDEX IF NOT EXISTS idx_members_mess_status ON members(mess_id, status)',
+      'CREATE INDEX IF NOT EXISTS idx_members_mess_name ON members(mess_id, name)',
       'CREATE INDEX IF NOT EXISTS idx_meal_entries_month ON meal_entries(accounting_month_id)',
       'CREATE INDEX IF NOT EXISTS idx_meal_entries_member_date ON meal_entries(member_id, meal_date)',
       'CREATE INDEX IF NOT EXISTS idx_meal_entries_date ON meal_entries(meal_date)',
       'CREATE INDEX IF NOT EXISTS idx_expenses_month ON expenses(accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_expenses_paid_by_member_month ON expenses(paid_by_member_id, accounting_month_id)',
       'CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date)',
       'CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id)',
       'CREATE INDEX IF NOT EXISTS idx_deposits_month ON deposits(accounting_month_id)',
       'CREATE INDEX IF NOT EXISTS idx_deposits_member_date ON deposits(member_id, date)',
       'CREATE INDEX IF NOT EXISTS idx_utility_bills_month ON utility_bills(accounting_month_id)',
       'CREATE INDEX IF NOT EXISTS idx_adjustments_member_month ON member_adjustments(member_id, accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_member_settlements_member ON member_settlements(member_id, settlement_id)',
       'CREATE INDEX IF NOT EXISTS idx_audit_entries_entity ON audit_entries(entity_type, entity_id)',
     ];
     for (final statement in statements) {
@@ -574,7 +580,18 @@ class MessDao extends DatabaseAccessor<AppDatabase> with _$MessDaoMixin {
   }
 }
 
-@DriftAccessor(tables: [Members])
+@DriftAccessor(
+  tables: [
+    Members,
+    MealEntries,
+    Deposits,
+    Expenses,
+    MemberAdjustments,
+    MemberSettlements,
+    Settlements,
+    AccountingMonths,
+  ],
+)
 class MemberDao extends DatabaseAccessor<AppDatabase> with _$MemberDaoMixin {
   MemberDao(super.db);
 
@@ -597,10 +614,120 @@ class MemberDao extends DatabaseAccessor<AppDatabase> with _$MemberDaoMixin {
     return query.watch();
   }
 
+  /// Searches locally so the member list remains usable offline. A blank query
+  /// returns every member matching [status].
+  Stream<List<Member>> watchMembers(
+    String messId, {
+    String? status,
+    String query = '',
+  }) {
+    final normalizedQuery = query.trim().toLowerCase();
+    final statement = select(members)
+      ..where((table) {
+        var expression = table.messId.equals(messId);
+        if (status != null && status != 'all') {
+          expression = expression & table.status.equals(status);
+        }
+        if (normalizedQuery.isNotEmpty) {
+          final pattern = '%$normalizedQuery%';
+          expression =
+              expression &
+              (table.name.lower().like(pattern) |
+                  table.nickname.lower().like(pattern) |
+                  table.phone.lower().like(pattern) |
+                  table.roomNumber.lower().like(pattern));
+        }
+        return expression;
+      })
+      ..orderBy([(table) => OrderingTerm.asc(table.name)]);
+    return statement.watch();
+  }
+
+  Future<int> changeStatus(
+    String memberId, {
+    required String status,
+    DateTime? leaveDate,
+  }) {
+    return (update(members)..where((table) => table.id.equals(memberId))).write(
+      MembersCompanion(
+        status: Value(status),
+        leaveDate: Value(leaveDate),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
   Future<Member?> findById(String id) {
     return (select(
       members,
     )..where((table) => table.id.equals(id))).getSingleOrNull();
+  }
+
+  Stream<List<MealEntry>> watchMeals(String memberId, String monthId) {
+    final query = select(mealEntries)
+      ..where(
+        (table) =>
+            table.memberId.equals(memberId) &
+            table.accountingMonthId.equals(monthId),
+      )
+      ..orderBy([(table) => OrderingTerm.desc(table.mealDate)]);
+    return query.watch();
+  }
+
+  Stream<List<Deposit>> watchDeposits(String memberId, String monthId) {
+    final query = select(deposits)
+      ..where(
+        (table) =>
+            table.memberId.equals(memberId) &
+            table.accountingMonthId.equals(monthId),
+      )
+      ..orderBy([(table) => OrderingTerm.desc(table.date)]);
+    return query.watch();
+  }
+
+  Stream<List<Expense>> watchExpensesPaid(String memberId, String monthId) {
+    final query = select(expenses)
+      ..where(
+        (table) =>
+            table.paidByMemberId.equals(memberId) &
+            table.accountingMonthId.equals(monthId),
+      )
+      ..orderBy([(table) => OrderingTerm.desc(table.date)]);
+    return query.watch();
+  }
+
+  Stream<List<MemberAdjustment>> watchAdjustments(
+    String memberId,
+    String monthId,
+  ) {
+    final query = select(memberAdjustments)
+      ..where(
+        (table) =>
+            table.memberId.equals(memberId) &
+            table.accountingMonthId.equals(monthId),
+      )
+      ..orderBy([(table) => OrderingTerm.desc(table.date)]);
+    return query.watch();
+  }
+
+  Future<List<TypedResult>> monthlyHistory(String memberId) {
+    final query =
+        select(memberSettlements).join([
+            innerJoin(
+              settlements,
+              settlements.id.equalsExp(memberSettlements.settlementId),
+            ),
+            innerJoin(
+              accountingMonths,
+              accountingMonths.id.equalsExp(settlements.accountingMonthId),
+            ),
+          ])
+          ..where(memberSettlements.memberId.equals(memberId))
+          ..orderBy([
+            OrderingTerm.desc(accountingMonths.year),
+            OrderingTerm.desc(accountingMonths.month),
+          ]);
+    return query.get();
   }
 }
 
@@ -621,6 +748,16 @@ class AccountingMonthDao extends DatabaseAccessor<AppDatabase>
         .getSingleOrNull();
   }
 
+  /// Includes a settlement draft, which is still an open period and must not
+  /// allow a second accounting month to be started.
+  Future<AccountingMonth?> unclosedForMess(String messId) {
+    return (select(accountingMonths)..where(
+          (table) =>
+              table.messId.equals(messId) & table.status.isNotValue('closed'),
+        ))
+        .getSingleOrNull();
+  }
+
   Stream<List<AccountingMonth>> watchForMess(String messId) {
     final query = select(accountingMonths)
       ..where((table) => table.messId.equals(messId))
@@ -629,6 +766,20 @@ class AccountingMonthDao extends DatabaseAccessor<AppDatabase>
         (table) => OrderingTerm.desc(table.month),
       ]);
     return query.watch();
+  }
+
+  Future<AccountingMonth?> findById(String id) {
+    return (select(
+      accountingMonths,
+    )..where((table) => table.id.equals(id))).getSingleOrNull();
+  }
+
+  Future<int> countForMess(String messId) async {
+    final count = accountingMonths.id.count();
+    final query = selectOnly(accountingMonths)
+      ..addColumns([count])
+      ..where(accountingMonths.messId.equals(messId));
+    return (await query.getSingle()).read(count) ?? 0;
   }
 }
 

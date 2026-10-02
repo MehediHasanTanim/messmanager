@@ -6,6 +6,7 @@ import '../../../app/providers/app_providers.dart';
 import '../../../app/router/app_router.dart';
 import '../../../core/theme/app_tokens.dart';
 import '../../../core/widgets/app_content.dart';
+import '../../accounting/presentation/accounting_providers.dart';
 
 class FoundationPage extends StatelessWidget {
   const FoundationPage({
@@ -34,23 +35,33 @@ class FoundationPage extends StatelessWidget {
   }
 }
 
-class HomeFoundationPage extends StatelessWidget {
+class HomeFoundationPage extends ConsumerWidget {
   const HomeFoundationPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final month = ref.watch(currentAccountingMonthProvider);
     return ListView(
       padding: const EdgeInsets.all(AppSpacing.md),
-      children: const [
-        AppSectionHeader(title: 'আগস্ট ২০২৫'),
-        SizedBox(height: AppSpacing.md),
-        AppSummaryCard(
+      children: [
+        AppSectionHeader(
+          title: month.when(
+            loading: () => 'হিসাবের মাস',
+            error: (_, _) => 'হিসাবের মাস',
+            data: (item) =>
+                item == null ? 'হিসাবের মাস নেই' : '${item.month}/${item.year}',
+          ),
+          actionLabel: 'পরিবর্তন',
+          onAction: () => context.push(AppRoutes.months),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        const AppSummaryCard(
           label: 'বর্তমান মিল রেট',
           value: '৳0.00',
           icon: Icons.restaurant_outlined,
         ),
-        SizedBox(height: AppSpacing.md),
-        AppSummaryCard(
+        const SizedBox(height: AppSpacing.md),
+        const AppSummaryCard(
           label: 'আজকের খাবার',
           value: 'কোনো এন্ট্রি নেই',
           icon: Icons.today_outlined,

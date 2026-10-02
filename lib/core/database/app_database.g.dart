@@ -26244,6 +26244,18 @@ class MessDaoManager {
 mixin _$MemberDaoMixin on DatabaseAccessor<AppDatabase> {
   $MessesTable get messes => attachedDatabase.messes;
   $MembersTable get members => attachedDatabase.members;
+  $AccountingMonthsTable get accountingMonths =>
+      attachedDatabase.accountingMonths;
+  $MealEntriesTable get mealEntries => attachedDatabase.mealEntries;
+  $DepositsTable get deposits => attachedDatabase.deposits;
+  $ExpenseCategoriesTable get expenseCategories =>
+      attachedDatabase.expenseCategories;
+  $ExpensesTable get expenses => attachedDatabase.expenses;
+  $MemberAdjustmentsTable get memberAdjustments =>
+      attachedDatabase.memberAdjustments;
+  $SettlementsTable get settlements => attachedDatabase.settlements;
+  $MemberSettlementsTable get memberSettlements =>
+      attachedDatabase.memberSettlements;
   MemberDaoManager get managers => MemberDaoManager(this);
 }
 
@@ -26254,6 +26266,34 @@ class MemberDaoManager {
       $$MessesTableTableManager(_db.attachedDatabase, _db.messes);
   $$MembersTableTableManager get members =>
       $$MembersTableTableManager(_db.attachedDatabase, _db.members);
+  $$AccountingMonthsTableTableManager get accountingMonths =>
+      $$AccountingMonthsTableTableManager(
+        _db.attachedDatabase,
+        _db.accountingMonths,
+      );
+  $$MealEntriesTableTableManager get mealEntries =>
+      $$MealEntriesTableTableManager(_db.attachedDatabase, _db.mealEntries);
+  $$DepositsTableTableManager get deposits =>
+      $$DepositsTableTableManager(_db.attachedDatabase, _db.deposits);
+  $$ExpenseCategoriesTableTableManager get expenseCategories =>
+      $$ExpenseCategoriesTableTableManager(
+        _db.attachedDatabase,
+        _db.expenseCategories,
+      );
+  $$ExpensesTableTableManager get expenses =>
+      $$ExpensesTableTableManager(_db.attachedDatabase, _db.expenses);
+  $$MemberAdjustmentsTableTableManager get memberAdjustments =>
+      $$MemberAdjustmentsTableTableManager(
+        _db.attachedDatabase,
+        _db.memberAdjustments,
+      );
+  $$SettlementsTableTableManager get settlements =>
+      $$SettlementsTableTableManager(_db.attachedDatabase, _db.settlements);
+  $$MemberSettlementsTableTableManager get memberSettlements =>
+      $$MemberSettlementsTableTableManager(
+        _db.attachedDatabase,
+        _db.memberSettlements,
+      );
 }
 
 mixin _$AccountingMonthDaoMixin on DatabaseAccessor<AppDatabase> {
