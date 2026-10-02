@@ -494,6 +494,7 @@ class BackupMetadata extends Table {
     ExpenseDao,
     DepositDao,
     UtilityDao,
+    AdjustmentDao,
     SettlementDao,
     SettingsDao,
   ],
@@ -543,7 +544,9 @@ class AppDatabase extends _$AppDatabase {
       'CREATE INDEX IF NOT EXISTS idx_deposits_month ON deposits(accounting_month_id)',
       'CREATE INDEX IF NOT EXISTS idx_deposits_member_date ON deposits(member_id, date)',
       'CREATE INDEX IF NOT EXISTS idx_utility_bills_month ON utility_bills(accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_utility_allocations_bill ON utility_bill_allocations(utility_bill_id)',
       'CREATE INDEX IF NOT EXISTS idx_adjustments_member_month ON member_adjustments(member_id, accounting_month_id)',
+      'CREATE INDEX IF NOT EXISTS idx_adjustments_month ON member_adjustments(accounting_month_id)',
       'CREATE INDEX IF NOT EXISTS idx_member_settlements_member ON member_settlements(member_id, settlement_id)',
       'CREATE INDEX IF NOT EXISTS idx_audit_entries_entity ON audit_entries(entity_type, entity_id)',
     ];
@@ -1096,12 +1099,44 @@ class ExpenseDao extends DatabaseAccessor<AppDatabase> with _$ExpenseDaoMixin {
   }
 }
 
-@DriftAccessor(tables: [Deposits])
+@DriftAccessor(tables: [Deposits, AccountingMonths])
 class DepositDao extends DatabaseAccessor<AppDatabase> with _$DepositDaoMixin {
   DepositDao(super.db);
 
   Future<void> create(DepositsCompanion deposit) =>
       into(deposits).insert(deposit);
+
+  Future<List<Deposit>> depositsForMonth(String monthId) =>
+      (select(deposits)
+            ..where((table) => table.accountingMonthId.equals(monthId))
+            ..orderBy([(table) => OrderingTerm.desc(table.date)]))
+          .get();
+
+  Future<List<Deposit>> depositsForMember(String memberId, String monthId) =>
+      (select(deposits)
+            ..where(
+              (table) =>
+                  table.memberId.equals(memberId) &
+                  table.accountingMonthId.equals(monthId),
+            )
+            ..orderBy([(table) => OrderingTerm.desc(table.date)]))
+          .get();
+
+  Future<Deposit?> depositById(String id) => (select(
+    deposits,
+  )..where((table) => table.id.equals(id))).getSingleOrNull();
+
+  Future<void> saveForOpenMonth(DepositsCompanion deposit) =>
+      transaction(() async {
+        await _assertMonthOpen(deposit.accountingMonthId.value);
+        await into(deposits).insertOnConflictUpdate(deposit);
+      });
+
+  Future<void> deleteForOpenMonth(String id, String monthId) =>
+      transaction(() async {
+        await _assertMonthOpen(monthId);
+        await (delete(deposits)..where((table) => table.id.equals(id))).go();
+      });
 
   Future<int> totalForMemberInMonth(
     String memberId,
@@ -1116,9 +1151,19 @@ class DepositDao extends DatabaseAccessor<AppDatabase> with _$DepositDaoMixin {
       );
     return (await query.getSingle()).read(total) ?? 0;
   }
+
+  Future<void> _assertMonthOpen(String monthId) async {
+    final month = await (select(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).getSingleOrNull();
+    if (month == null) throw StateError('Accounting month not found.');
+    if (month.status == 'closed') {
+      throw StateError('Closed accounting months cannot be edited.');
+    }
+  }
 }
 
-@DriftAccessor(tables: [UtilityBills, UtilityBillAllocations])
+@DriftAccessor(tables: [UtilityBills, UtilityBillAllocations, AccountingMonths])
 class UtilityDao extends DatabaseAccessor<AppDatabase> with _$UtilityDaoMixin {
   UtilityDao(super.db);
 
@@ -1140,6 +1185,102 @@ class UtilityDao extends DatabaseAccessor<AppDatabase> with _$UtilityDaoMixin {
       ..addColumns([total])
       ..where(utilityBillAllocations.utilityBillId.equals(utilityBillId));
     return (await query.getSingle()).read(total) ?? 0;
+  }
+
+  Future<List<UtilityBill>> billsForMonth(String monthId) =>
+      (select(utilityBills)
+            ..where((table) => table.accountingMonthId.equals(monthId))
+            ..orderBy([(table) => OrderingTerm.desc(table.billingMonth)]))
+          .get();
+
+  Future<UtilityBill?> billById(String id) => (select(
+    utilityBills,
+  )..where((table) => table.id.equals(id))).getSingleOrNull();
+
+  Future<List<UtilityBillAllocation>> allocationsForBill(String billId) =>
+      (select(
+        utilityBillAllocations,
+      )..where((table) => table.utilityBillId.equals(billId))).get();
+
+  Future<void> saveBillForOpenMonth(
+    UtilityBillsCompanion bill,
+    List<UtilityBillAllocationsCompanion> allocations,
+  ) => transaction(() async {
+    await _assertMonthOpen(bill.accountingMonthId.value);
+    await into(utilityBills).insertOnConflictUpdate(bill);
+    await (delete(
+      utilityBillAllocations,
+    )..where((table) => table.utilityBillId.equals(bill.id.value))).go();
+    await batch(
+      (batch) => batch.insertAll(utilityBillAllocations, allocations),
+    );
+  });
+
+  Future<void> markPaid(
+    String billId,
+    String monthId, {
+    String? paidByMemberId,
+    DateTime? paidDate,
+  }) => transaction(() async {
+    await _assertMonthOpen(monthId);
+    await (update(
+      utilityBills,
+    )..where((table) => table.id.equals(billId))).write(
+      UtilityBillsCompanion(
+        status: const Value('paid'),
+        paidByMemberId: Value(paidByMemberId),
+        paidDate: Value(paidDate ?? DateTime.now()),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  });
+
+  Future<void> _assertMonthOpen(String monthId) async {
+    final month = await (select(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).getSingleOrNull();
+    if (month == null) throw StateError('Accounting month not found.');
+    if (month.status == 'closed')
+      throw StateError('Closed accounting months cannot be edited.');
+  }
+}
+
+@DriftAccessor(tables: [MemberAdjustments, AccountingMonths])
+class AdjustmentDao extends DatabaseAccessor<AppDatabase>
+    with _$AdjustmentDaoMixin {
+  AdjustmentDao(super.db);
+
+  Future<List<MemberAdjustment>> adjustmentsForMonth(String monthId) =>
+      (select(memberAdjustments)
+            ..where((table) => table.accountingMonthId.equals(monthId))
+            ..orderBy([(table) => OrderingTerm.desc(table.date)]))
+          .get();
+
+  Future<MemberAdjustment?> adjustmentById(String id) => (select(
+    memberAdjustments,
+  )..where((table) => table.id.equals(id))).getSingleOrNull();
+
+  Future<void> saveForOpenMonth(MemberAdjustmentsCompanion adjustment) =>
+      transaction(() async {
+        await _assertMonthOpen(adjustment.accountingMonthId.value);
+        await into(memberAdjustments).insertOnConflictUpdate(adjustment);
+      });
+
+  Future<void> deleteForOpenMonth(String id, String monthId) =>
+      transaction(() async {
+        await _assertMonthOpen(monthId);
+        await (delete(
+          memberAdjustments,
+        )..where((table) => table.id.equals(id))).go();
+      });
+
+  Future<void> _assertMonthOpen(String monthId) async {
+    final month = await (select(
+      accountingMonths,
+    )..where((table) => table.id.equals(monthId))).getSingleOrNull();
+    if (month == null) throw StateError('Accounting month not found.');
+    if (month.status == 'closed')
+      throw StateError('Closed accounting months cannot be edited.');
   }
 }
 

@@ -12659,6 +12659,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final ExpenseDao expenseDao = ExpenseDao(this as AppDatabase);
   late final DepositDao depositDao = DepositDao(this as AppDatabase);
   late final UtilityDao utilityDao = UtilityDao(this as AppDatabase);
+  late final AdjustmentDao adjustmentDao = AdjustmentDao(this as AppDatabase);
   late final SettlementDao settlementDao = SettlementDao(this as AppDatabase);
   late final SettingsDao settingsDao = SettingsDao(this as AppDatabase);
   @override
@@ -26439,6 +26440,35 @@ class UtilityDaoManager {
       $$UtilityBillAllocationsTableTableManager(
         _db.attachedDatabase,
         _db.utilityBillAllocations,
+      );
+}
+
+mixin _$AdjustmentDaoMixin on DatabaseAccessor<AppDatabase> {
+  $MessesTable get messes => attachedDatabase.messes;
+  $AccountingMonthsTable get accountingMonths =>
+      attachedDatabase.accountingMonths;
+  $MembersTable get members => attachedDatabase.members;
+  $MemberAdjustmentsTable get memberAdjustments =>
+      attachedDatabase.memberAdjustments;
+  AdjustmentDaoManager get managers => AdjustmentDaoManager(this);
+}
+
+class AdjustmentDaoManager {
+  final _$AdjustmentDaoMixin _db;
+  AdjustmentDaoManager(this._db);
+  $$MessesTableTableManager get messes =>
+      $$MessesTableTableManager(_db.attachedDatabase, _db.messes);
+  $$AccountingMonthsTableTableManager get accountingMonths =>
+      $$AccountingMonthsTableTableManager(
+        _db.attachedDatabase,
+        _db.accountingMonths,
+      );
+  $$MembersTableTableManager get members =>
+      $$MembersTableTableManager(_db.attachedDatabase, _db.members);
+  $$MemberAdjustmentsTableTableManager get memberAdjustments =>
+      $$MemberAdjustmentsTableTableManager(
+        _db.attachedDatabase,
+        _db.memberAdjustments,
       );
 }
 

@@ -83,6 +83,21 @@ class MoreFoundationPage extends StatelessWidget {
         const AppSectionHeader(title: 'আরও'),
         const SizedBox(height: AppSpacing.sm),
         _MoreRouteTile(
+          label: 'ইউটিলিটি বিল',
+          icon: Icons.bolt_outlined,
+          onTap: () => context.go(AppRoutes.utilityBills),
+        ),
+        _MoreRouteTile(
+          label: 'জমা',
+          icon: Icons.account_balance_wallet_outlined,
+          onTap: () => context.go(AppRoutes.deposits),
+        ),
+        _MoreRouteTile(
+          label: 'সমন্বয়',
+          icon: Icons.tune_outlined,
+          onTap: () => context.go(AppRoutes.adjustments),
+        ),
+        _MoreRouteTile(
           label: 'সেটিংস',
           icon: Icons.settings_outlined,
           onTap: () => context.go(AppRoutes.settings),

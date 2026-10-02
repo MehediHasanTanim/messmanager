@@ -6,6 +6,7 @@ import '../../core/widgets/app_scaffold.dart';
 import '../../core/widgets/app_states.dart';
 import '../../features/accounting/presentation/accounting_month_pages.dart';
 import '../../features/expenses/presentation/expense_pages.dart';
+import '../../features/finance/presentation/finance_pages.dart';
 import '../../features/foundation/presentation/foundation_page.dart';
 import '../../features/guest_special/presentation/guest_special_pages.dart';
 import '../../features/meals/presentation/meal_pages.dart';
@@ -50,6 +51,12 @@ abstract final class AppRoutes {
   static const settings = '/more/settings';
   static const settlement = '/more/settlement';
   static const reports = '/more/reports';
+  static const utilityBills = '/more/utilities';
+  static const addUtilityBill = '/more/utilities/add';
+  static const deposits = '/more/deposits';
+  static const addDeposit = '/more/deposits/add';
+  static const adjustments = '/more/adjustments';
+  static const addAdjustment = '/more/adjustments/add';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -391,6 +398,42 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'settings',
                 name: 'settings',
                 builder: (context, state) => const SettingsFoundationPage(),
+              ),
+              GoRoute(
+                path: 'utilities',
+                name: 'utility-bills',
+                builder: (context, state) => const UtilityBillsPage(),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    name: 'utility-bill-add',
+                    builder: (context, state) => const UtilityBillFormPage(),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'deposits',
+                name: 'deposits',
+                builder: (context, state) => const DepositsPage(),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    name: 'deposit-add',
+                    builder: (context, state) => const DepositFormPage(),
+                  ),
+                ],
+              ),
+              GoRoute(
+                path: 'adjustments',
+                name: 'adjustments',
+                builder: (context, state) => const AdjustmentsPage(),
+                routes: [
+                  GoRoute(
+                    path: 'add',
+                    name: 'adjustment-add',
+                    builder: (context, state) => const AdjustmentFormPage(),
+                  ),
+                ],
               ),
               GoRoute(
                 path: 'settlement/:monthId',
